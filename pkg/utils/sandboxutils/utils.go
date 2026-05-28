@@ -19,6 +19,7 @@ package sandboxutils
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -145,8 +146,28 @@ func IsControlledBySandboxSet(sbx *agentsv1alpha1.Sandbox) bool {
 		controller.APIVersion == agentsv1alpha1.SandboxSetControllerKind.GroupVersion().String()
 }
 
+// sandboxIDSeparator joins namespace and name in a sandbox ID. It is the single source
+// of truth for the encoding used by util functions
+const sandboxIDSeparator = "--"
+
+// GetSandboxID encodes a sandbox as "<namespace>--<name>". The encoding requires that
+// the namespace itself does not contain "--"; callers that accept user-supplied
+// namespaces must enforce this with ValidateNamespaceForSandboxID at the boundary.
+// See pkg/servers/e2b/AGENTS.md ("Namespace Naming Constraint") for the rationale.
 func GetSandboxID(sbx *agentsv1alpha1.Sandbox) string {
-	return fmt.Sprintf("%s--%s", sbx.Namespace, sbx.Name)
+	return sbx.Namespace + sandboxIDSeparator + sbx.Name
+}
+
+// ValidateNamespaceForSandboxID rejects namespace names that cannot be safely embedded
+// in a sandbox ID.
+func ValidateNamespaceForSandboxID(namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace must not be empty")
+	}
+	if strings.Contains(namespace, sandboxIDSeparator) {
+		return fmt.Errorf("namespace %q must not contain %q: this sequence is reserved as the sandbox ID separator", namespace, sandboxIDSeparator)
+	}
+	return nil
 }
 
 func IsSandboxReady(sbx *agentsv1alpha1.Sandbox) bool {

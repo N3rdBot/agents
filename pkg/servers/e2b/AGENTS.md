@@ -62,6 +62,14 @@ Every E2B route is registered twice via `RegisterE2BRoute`: once for the native 
 - Team UUIDs in API models, MySQL `teams.uid`, Secret payloads, and `/teams` responses are display-only compatibility
   metadata. They must not be used for storage lookup, authorization, namespace selection, or team equality checks.
 
+### Namespace Naming Constraint
+- Sandbox IDs are encoded as `<namespace>--<name>` (see `sandboxutils.GetSandboxID`). The `--` is a reserved separator.
+- Team / namespace names in the E2B path **must not contain `--`**. 
+- The constraint is enforced at API key creation in `validateTeamNamespace` via `sandboxutils.ValidateNamespaceForSandboxID`.
+  Admin-team callers creating keys for other teams pass through the same check.
+- The admin team itself (`models.AdminTeamName = "admin"`) has no `--`, never maps to a namespace
+  (`getNamespaceOfUser` returns `""` for admin), and is therefore not affected by this rule.
+
 ### List And Delete Authorization
 - Any resource returned by a List endpoint should be deletable by the same caller unless deletion is explicitly unsupported
   or blocked by a documented safety rule.
